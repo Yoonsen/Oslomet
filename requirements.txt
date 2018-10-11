@@ -7,4 +7,4 @@ seaborn
 scipy
 networkx
 wordcloud
-beautifulsoup
+beautifulsoup4
