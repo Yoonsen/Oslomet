@@ -1,3 +1,4 @@
+lxml
 pandas
 matplotlib
 numpy
@@ -7,3 +8,4 @@ seaborn
 scipy
 networkx
 wordcloud
+beautifulsoup4
