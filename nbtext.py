@@ -156,7 +156,83 @@ def get_papers(top=5, cutoff=5, navn='%', yearfrom=1800, yearto=2020, samplesize
 
     return [dict(x) for x in r]
 
-def collocation(word, yearfrom=2010, yearto=2018, before=3, after=3, limit=1000, corpus='avis'):
+
+def urn_coll(word, urns=[], after=5, before=5, limit=1000):
+    """Find collocations for word in a set of book URNs. Only books at the moment"""
+    if isinstance(urns[0], list):  # urns assumed to be list of list with urn-serial as first element
+        urns = [u[0] for u in urns]
+        
+    r = requests.post("https://api.nb.no/ngram/urncoll", json={'word':word, 'urns':urns, 
+                                                                   'after':after, 'before':before, 'limit':limit})
+    return pd.DataFrame.from_dict(r.json(), orient='index').sort_values(by=0, ascending = False)
+
+def collocation(
+    word, 
+    yearfrom=2010, 
+    yearto=2018, 
+    before=3, 
+    after=3, 
+    limit=1000, 
+    corpus='avis',
+    lang='nob',
+    title='%',
+    ddk='%', 
+    subtitle='%'):
+    """Defined collects frequencies for a given word"""
+    
+    data =  requests.get(
+        "https://api.nb.no/ngram/collocation", 
+        params={
+            'word':word,
+            'corpus':corpus, 
+            'yearfrom':yearfrom, 
+            'before':before,
+            'after':after,
+            'limit':limit,
+            'yearto':yearto,
+        'title':title,
+        'ddk':ddk,
+        'subtitle':subtitle}).json()
+    return pd.DataFrame.from_dict(data['freq'], orient='index')
+
+
+def collocation_data(words, yearfrom = 2000, yearto = 2005, limit = 1000, before = 5, after = 5, title = '%'):
+    """Collocation for a set of words sum up all the collocations"""
+    a = dict()
+    
+    if isinstance(words, str):
+        words = words.split()
+    
+    for word in words:
+        
+        print(word)
+        try:
+            
+            a[word] = collocation(
+                word, 
+                yearfrom = yearfrom, yearto = yearto, limit = limit, 
+                corpus = 'bok', before = before, 
+                after = after, title = title
+            )
+            
+            a[word].columns = [word]
+        
+        except:    
+            print(w, ' feilsituasjon')    
+    b=b.fillna(0)
+    
+    b = pd.DataFrame(b.sum(axis=1) )
+    
+    return b.sort_values(by=0, ascending=False)
+
+    
+    b = pd.DataFrame()
+    
+    for w in a.keys():
+        b = b.join(a[w], how="outer")
+
+
+def collocation_old(word, yearfrom=2010, yearto=2018, before=3, after=3, limit=1000, corpus='avis'):
     data =  requests.get(
         "https://api.nb.no/ngram/collocation", 
         params={
@@ -701,7 +777,7 @@ def get_konk(word, params=None, kind='html'):
     if kind=='html':
         rows = ""
         row_template = ("<tr>"
-                        "<td><a href='{urn}' target='_'>{urnredux}</a></td>"
+                        "<td><a href='{urn}?searchText={kw}' target='_'>{urnredux}</a></td>"
                         "<td>{b}</td>"
                         "<td>{w}</td>"
                         "<td style='text-align:left'>{a}</td>"
@@ -709,6 +785,7 @@ def get_konk(word, params=None, kind='html'):
         if corpus == 'bok':
             for x in r.json():
                 rows += row_template.format(
+                    kw = word,
                     urn=x['urn'],
                     urnredux=','.join([x['author'], x['title'], str(x['year'])]),
                     b=x['before'],
@@ -782,12 +859,13 @@ def get_urnkonk(word, params=None, html=True):
         for x in r.json():
             rows += """<tr>
                 <td>
-                    <a href='{urn}' target='_blank' style='text-decoration:none'>{urnredux}</a>
+                    <a href='{urn}?searchText={kw}' target='_blank' style='text-decoration:none'>{urnredux}</a>
                 </td>
                 <td>{b}</td>
                 <td>{w}</td>
                 <td style='text-align:left'>{a}</td>
-            </tr>\n""".format(urn=x['urn'],
+            </tr>\n""".format(kw=word,
+                              urn=x['urn'],
                               urnredux="{t}, {f}, {y}".format(t=x['title'], f=x['author'], y=x['year']),
                               b=x['before'],
                               w=x['word'],
