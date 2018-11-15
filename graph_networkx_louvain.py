@@ -8,7 +8,7 @@ from networkx.algorithms.community import k_clique_communities
 import seaborn as sns
 
 from collections import Counter
-from nbtext import urn_coll, frame, get_freq
+from nbtext import urn_coll, urn_coll_words, frame, get_freq
 from matplotlib import colors as mcolors
 
 
@@ -27,6 +27,8 @@ rcParams['figure.figsize'] = 15, 10
 
 import matplotlib.pyplot as plt
 
+
+cutdown = lambda x: x.subgraph([n[0] for n in x.degree() if n[1]>1])
 
 def make_graph_corp(word, corpus='eng'):
     result = requests.get("http://www.nb.no/sp_tjenester/beta/ngram_1/galaxies/query?terms={word}&lang=all&corpus={corpus}".
@@ -366,7 +368,7 @@ def print_sets(graph):
         print(x, ', '.join(graph[1][x]),'\n')
     return True
 
-def make_collocation_graph(target, top=15, urns=[], cutoff=10, before=4, after=4):
+def make_collocation_graph(target, top = 15, urns=[], cutoff=0, cut_val=2, before=4, after=4, limit=1000):
     """Make a cascaded network from collocations"""
 
     
@@ -375,10 +377,13 @@ def make_collocation_graph(target, top=15, urns=[], cutoff=10, before=4, after=4
         antall += get_freq(urn[0], top=0, cutoff=0)
     
     korpus_totalen = frame(antall, 'total')
-    Total = korpus_totalen[korpus_totalen > cutoff]
+    Total = korpus_totalen[korpus_totalen > cut_val]
     
-    I = urn_coll(target, urns = urns, before=before, after=after)
-    toppis = frame(I[0]**1.2/Total['total'], target).sort_values(by=target, ascending=False)
+    if isinstance(target, str):
+        target = target.split()
+       
+    I = urn_coll_words(target, urns = urns, before=before, after=after, limit=limit)
+    toppis = frame(I[0]**1.2/Total['total'], target[0]).sort_values(by=target[0], ascending=False)
 
     #toppis[:top].index
 
@@ -393,14 +398,17 @@ def make_collocation_graph(target, top=15, urns=[], cutoff=10, before=4, after=4
 
     
 
-    top = dict()
-    top[target] = toppis
+    tops = dict()
+    if len(target) == 1:
+        tops[target[0]] = toppis
+    else:
+        tops['_'.join(target[:2])] = toppis
     for w in isframe:
-        top[w] = frame(isframe[w][w]**1.2/Total['total'], w).sort_values(by=w, ascending=False)
+        tops[w] = frame(isframe[w][w]**1.2/Total['total'], w).sort_values(by=w, ascending=False)
 
     edges = []
-    for w in top:
-        edges += [(w, coll) for coll in top[w][:15].index if coll.isalpha()]
+    for w in tops:
+        edges += [(w, coll) for coll in tops[w][:top].index if coll.isalpha()]
 
 
     Ice = nx.Graph()
@@ -408,3 +416,18 @@ def make_collocation_graph(target, top=15, urns=[], cutoff=10, before=4, after=4
     Ice.add_edges_from(edges)
     
     return Ice
+
+def show_graph(G, spread=0.2, fontsize=10, deltax=0, deltay=0):
+    return draw_graph_centrality2(G, mcommunity(G),k = spread, fontsize=fontsize, deltax=deltax, deltay=deltay)
+
+def show_cliques(G):
+    C = make_cliques_from_graph(G.to_undirected())
+    for t in C[1]:
+        print(t, ', '.join(C[1][t]))
+        print()
+
+def show_community(G):
+    MC = mcommunity(G)
+    for i in range(len(MC)):
+        print(i + 1, ', '.join(MC[i]))
+        print()
