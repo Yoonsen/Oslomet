@@ -115,6 +115,7 @@ def draw_graph_centrality2(G, Subsets=[],  h=15, v=10, deltax=0, deltay=0, fonts
                            threshold=0.01, 
                            multi=3000,
                           edge_color='olive',
+                           edge_alpha = 0.1,
                           colstart=0.2,
                           coldark=0.5):
     
@@ -159,7 +160,7 @@ def draw_graph_centrality2(G, Subsets=[],  h=15, v=10, deltax=0, deltay=0, fonts
         nx.draw_networkx_nodes(G, pos, alpha=node_alpha, node_color= glob_col,  nodelist = subnodes.keys(), node_size = [v * multi for v in subnodes.values()])
         True
         
-    nx.draw_networkx_edges(G, pos, alpha=0.1, arrows = arrows, edge_color = edge_color)
+    nx.draw_networkx_edges(G, pos, alpha= edge_alpha, arrows = arrows, edge_color = edge_color)
 
     rcParams['figure.figsize'] = x, y
     return
@@ -431,3 +432,35 @@ def show_community(G):
     for i in range(len(MC)):
         print(i + 1, ', '.join(MC[i]))
         print()
+    return True
+
+def community_dict(G):
+    sorter = Counter(dict(nx.degree(G)))
+    cd = dict()
+    for c in mcommunity(G):
+        l = [(x, sorter[x]) for x in c if sorter[x]>0]
+        #print(l)
+        l.sort(key=lambda i: i[1], reverse=True)
+        #print(l)
+        cd['-'.join([x[0] for x in l[:2]])] = [x[0] for x in l]
+    return cd
+
+def show_communities(G):
+    Gc = community_dict(G)
+    for c in Gc:
+        print(c,': ', ', '.join(Gc[c]))
+        print()
+        
+def reduce_MxM_graph(G, words, factor=0.01):
+    Gm = nx.Graph()
+    edges = []
+    for x in G.edges(data=True):
+        w = x[2]['weight']
+        w1 = x[0]
+        w2 = x[1]
+        new_weight =  w/(int(words.loc[w1])*int(words.loc[w2]))
+        if new_weight > factor:
+            edges.append((w1, w2, new_weight))
+    Gm.add_weighted_edges_from(edges)
+    return Gm
+       
